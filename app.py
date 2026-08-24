@@ -1,54 +1,63 @@
 import requests
 import json
 
-#Ollama Server
-url = "http://localhost:11434/api/generate"
+url = "http://localhost:11434/api/chat"
 
-print("Chat com Gemma:2b (local)")
-print("Digite 'sair' a qualquer momento para encerrar.")
+print("="*50)
+print("Chat with Gemma:2b")
+print("Type 'exit' to quit.")
+print("="*50)
+
+chat_history = []
 
 while True:
+    user_input = input("\nYou: ")
 
-    #input
-    prompt_texto = input("\nVocê: ")
-
-    if prompt_texto.lower() == "sair":
-        print("Encerrando o chat... Até mais!")
+    # Exit condition
+    if user_input.lower() == "exit":
+        print("Ending chat... Goodbye!")
         break
-
-    if not prompt_texto.strip():
+    
+    # Prevent empty inputs
+    if not user_input.strip():
         continue
 
-    #Model Name
-    #Prompt used
-    #Server
+    chat_history.append({"role": "user", "content": user_input})
+
+    #Payload details
     payload = {
-        "model": "gemma:2b", 
-        "prompt": prompt_texto,
+        "model": "gemma:2b",
+        "messages": chat_history,
         "stream": True
     }
 
     print("Gemma: ", end="", flush=True)
 
-    #Requisition HTTP(POST)
-    resposta = requests.post(url, json=payload, stream=True)
+    #Sending the POST request
+    response = requests.post(url, json=payload, stream=True)
+    
+    prompt_tokens = 0
+    completion_tokens = 0
+    
+    assistant_response = ""
 
-    tokens_entrada = 0
-    tokens_saida = 0
+    #Processing the stream
+    for line in response.iter_lines():
+        if line:
+            chunk = json.loads(line.decode('utf-8'))
+            
+            # Extracting the generated text
+            if "message" in chunk and "content" in chunk["message"]:
+                token_text = chunk["message"]["content"]
+                print(token_text, end="", flush=True)
+                
+                assistant_response += token_text 
 
-    #Loop that captures the words
-    for linha in resposta.iter_lines():
-        if linha:
-            #translate from bytes to dictionary
-            fragmento = json.loads(linha.decode('utf-8'))
+            # Getting token metrics when generation is done
+            if chunk.get("done") == True:
+                prompt_tokens = chunk.get("prompt_eval_count", 0)
+                completion_tokens = chunk.get("eval_count", 0)
 
-            #Pick the generated word, and print on screen
-            palavra = fragmento.get("response", "")
-            print(palavra, end="", flush=True)
+chat_history.append({"role": "assistant", "content": assistant_response})
 
-            #When the AI had the job done, print "done"
-            if fragmento.get("done") == True:
-                tokens_entrada = fragmento.get("prompt_eval_count", 0)
-                tokens_saida = fragmento.get("eval_count", 0)
-
-print(f"\n[Prompt: {tokens_entrada}, Resposta: {tokens_saida}, Total: {tokens_entrada + tokens_saida} tokens]")
+print(f"\n[Prompt: {prompt_tokens} | Completion: {completion_tokens} | Total: {prompt_tokens + completion_tokens} tokens]")
