@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 
 url = "http://localhost:11434/api/chat"
 
@@ -33,6 +34,8 @@ while True:
 
     print("Gemma: ", end="", flush=True)
 
+    start_time = time.time()
+
     #Sending the POST request
     response = requests.post(url, json=payload, stream=True)
     
@@ -58,6 +61,11 @@ while True:
                 prompt_tokens = chunk.get("prompt_eval_count", 0)
                 completion_tokens = chunk.get("eval_count", 0)
 
+    end_time = time.time()
+
 chat_history.append({"role": "assistant", "content": assistant_response})
 
-print(f"\n[Prompt: {prompt_tokens} | Completion: {completion_tokens} | Total: {prompt_tokens + completion_tokens} tokens]")
+duration = end_time - start_time
+tokes_per_second = completion_tokens / duration if duration > 0 else 0
+
+print(f"\n[Prompt: {prompt_tokens} | Completion: {completion_tokens}| Time: {duration:.2f}s | Speed: {tokes_per_second:.2f} | Total: {prompt_tokens + completion_tokens} tokens]")
